@@ -357,7 +357,7 @@ function Install-GoogleDrive {
 
 function Install-AdobeAcrobat {
     Write-Log "Verifying connection to Domain Controller for Adobe..."
-    $AdobePath = "\\192.168.1.2\NinjaProvApps\AdobeAcrobat\acroread.msi"
+    $AdobePath = "\\DOMAIN.IP.ADDRESS\NinjaProvApps\AdobeAcrobat\acroread.msi"
     
     # check network connection and permissions
     if (-not (Test-Path $AdobePath)) {
@@ -394,7 +394,7 @@ function Install-ODBC {
            $proc = Start-Process -FilePath "winget.exe" -ArgumentList "install -e --id Microsoft.msodbcsql.17 --accept-source-agreements --accept-package-agreements --silent" -Wait -PassThru -NoNewWindow
         } else {
             
-            $Args = '/i "\\192.168.1.2\NinjaProvApps\VistaClient\msodbcsql.msi" /qn /norestart IACCEPTMSODBCSQLLICENSETERMS=YES'
+            $Args = '/i "\\DOMAIN.IP.ADDRESS\NinjaProvApps\VistaClient\msodbcsql.msi" /qn /norestart IACCEPTMSODBCSQLLICENSETERMS=YES'
             $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList $Args -Wait -PassThru
         }
         
@@ -417,7 +417,7 @@ function Install-NetFramework {
         } else {
             
             $Args = '/q /norestart'
-            $proc = Start-Process -FilePath "\\192.168.1.2\NinjaProvApps\VistaClient\ndp48-x86-x64-allos-enu.exe" -ArgumentList $Args -Wait -PassThru
+            $proc = Start-Process -FilePath "\\DOMAIN.IP.ADDRESS\NinjaProvApps\VistaClient\ndp48-x86-x64-allos-enu.exe" -ArgumentList $Args -Wait -PassThru
         }
         
         if ($proc.ExitCode -in @(0, 3010, -1978335189)) { Write-Log ".NET Framework 4.8 installed successfully." "SUCCESS" } 
@@ -429,7 +429,7 @@ function Install-SAPReports {
     Write-Log "Installing SAP Crystal Reports from Domain Controller..."
     try {
         #Winget cant get SAP so default to domain controller
-        $Args = '/i "\\192.168.1.2\NinjaProvApps\SAP\CRRuntime_64bit_13_0_25.msi" /qn /norestart'
+        $Args = '/i "\\DOMAIN.IP.ADDRESS\NinjaProvApps\SAP\CRRuntime_64bit_13_0_25.msi" /qn /norestart'
         $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList $Args -Wait -PassThru
         
         if ($proc.ExitCode -in @(0, 3010)) { Write-Log "SAP Crystal Reports installed successfully." "SUCCESS" } 
@@ -447,7 +447,7 @@ function Install-VCRedist {
             
             $Args = '/install /quiet /norestart'
           
-            $proc = Start-Process -FilePath "\\192.168.1.2\NinjaProvApps\Bluebeam\vc_redist.x64.exe" -ArgumentList $Args -Wait -PassThru #install vc++ from bluebeam folder
+            $proc = Start-Process -FilePath "\\DOMAIN.IP.ADDRESS\NinjaProvApps\Bluebeam\vc_redist.x64.exe" -ArgumentList $Args -Wait -PassThru #install vc++ from bluebeam folder
         }
         
         if ($proc.ExitCode -in @(0, 3010, -1978335189)) { Write-Log "VC++ Redistributable installed successfully." "SUCCESS" } 
@@ -471,7 +471,7 @@ function Install-Bluebeam {
     else {
         # Domain Controller install logic
         $LocalTemp = "C:\Windows\Temp\Ninja Deploy\Bluebeam"
-        $NetworkPath = "\\192.168.1.2\NinjaProvApps\Bluebeam"
+        $NetworkPath = "\\DOMAIN.IP.ADDRESS\NinjaProvApps\Bluebeam"
         
         try {
             if (-not (Test-Path $LocalTemp)) { New-Item -ItemType Directory -Path $LocalTemp -Force | Out-Null }
@@ -506,7 +506,7 @@ function Install-Bluebeam {
 function Install-Vista {
     Write-Log "Starting Viewpoint Vista Installation from Domain Controller..."
     
-    $NetworkPath = "\\192.168.1.2\NinjaProvApps\VistaClient"
+    $NetworkPath = "\\DOMAIN.IP.ADDRESS\NinjaProvApps\VistaClient"
     $LocalTemp = "C:\Windows\Temp\VistaDeploy"
     
     try {
@@ -528,7 +528,7 @@ function Install-Vista {
 
         # SAP Crystal Reports (just in case)
         Write-Log "Installing bundled SAP Crystal Reports..."
-        $SAPArgs = '/i "\\192.168.1.2\NinjaProvApps\SAP\CRRuntime_64bit_13_0_25.msi" /qn /norestart'
+        $SAPArgs = '/i "\\DOMAIN.IP.ADDRESS\NinjaProvApps\SAP\CRRuntime_64bit_13_0_25.msi" /qn /norestart'
         $sapProc = Start-Process -FilePath "msiexec.exe" -ArgumentList $SAPArgs -Wait -PassThru
         if ($sapProc.ExitCode -notin @(0, 3010)) { Write-Log "SAP Crystal Reports failed (Exit Code: $($sapProc.ExitCode))" "ERROR" }
         
@@ -652,7 +652,7 @@ function Install-OfficeLTSC {
     Write-Log "Starting Office cleanup and installation process..."
     
     $LocalTemp = "C:\Windows\Temp\NinjaDeploy"
-    $NetworkPath = "\\192.168.1.2\NinjaProvApps\Office" 
+    $NetworkPath = "\\DOMAIN.IP.ADDRESS\NinjaProvApps\Office" 
     
     Write-Log "Getting rid of old files..."
     Remove-Item -Path $LocalTemp -Recurse -Force -ErrorAction SilentlyContinue
