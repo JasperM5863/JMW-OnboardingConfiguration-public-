@@ -1,5 +1,9 @@
 # JMW-OnboardingConfiguration-public-
-The official version is a private repository, so I've created a public version that showcases what the original one does:
+The official version is a private repository, so I've created a public version that showcases what the original one does. This won't run everything the same since some software is proprietary, but this should demo what it's supposed to do. 
+
+**Run this in powershell with:**
+
+   Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-RestMethod -Uri "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/OnboardingConfig.ps1" | Invoke-Expression
 
 Once a provisioned device logs in (as the new user) and has local admin (should automatically be done with NinjaOne), run this powershell script to install programs.
 There are two columns:
