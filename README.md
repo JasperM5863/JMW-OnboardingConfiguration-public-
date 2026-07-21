@@ -3,7 +3,7 @@ The official version is a private repository, so I've created a public version t
 
 **Run this in powershell with:**
 
-    Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-RestMethod -Uri "https://github.com/JasperM5863/JMW-OnboardingConfiguration-public-" | Invoke-Expression
+    Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-RestMethod -Uri "Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-RestMethod -Uri "https://raw.githubusercontent.com/JasperM5863/JMW-OnboardingConfiguration-public-/refs/heads/main/JMW-OnboardingConfig.ps1" | Invoke-Expression" | Invoke-Expression
    
 Once a provisioned device logs in (as the new user) and has local admin (should automatically be done with NinjaOne), run this powershell script AS ADMINISTRATOR to install programs.
 There are two columns:
