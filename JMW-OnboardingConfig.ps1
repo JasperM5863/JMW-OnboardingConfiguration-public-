@@ -1,5 +1,5 @@
-
 # JMW Laptop or Desktop Onboarding Config - script that has EVERYTHING, I stole this xaml from a college project I did lol
+# Note: This is the public release version, the orignal script had sensative information. It's been refactored to have domain controller dependencies replaced by internet-based downloads (Winget)
 
 Add-Type -AssemblyName PresentationFramework
 
@@ -9,7 +9,7 @@ Add-Type -AssemblyName PresentationFramework
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="JMW Laptop/Desktop Onboarding Config" Height="750" Width="900" WindowStartupLocation="CenterScreen">
+        Title="Laptop/Desktop Onboarding Config" Height="750" Width="900" WindowStartupLocation="CenterScreen">
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -47,8 +47,8 @@ Add-Type -AssemblyName PresentationFramework
                             </Grid.ColumnDefinitions>
                             <CheckBox x:Name="chkBluebeam" Content="Bluebeam Revu" VerticalAlignment="Center"/>
                             <ComboBox x:Name="cmbBluebeamSource" Grid.Column="1" Margin="10,0,0,0" Width="120" HorizontalAlignment="Left">
-                                <ComboBoxItem Content="Domain Controller" IsSelected="True"/>
-                                <ComboBoxItem Content="Web (Latest)"/>
+                                <!-- <ComboBoxItem Content="Domain Controller"/> -->
+                                <ComboBoxItem Content="Web (Latest)" IsSelected="True"/>
                             </ComboBox>
                         </Grid>
 
@@ -70,8 +70,8 @@ Add-Type -AssemblyName PresentationFramework
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                             <TextBlock Text="Source for all Pre-reqs: " VerticalAlignment="Center"/>
                             <ComboBox x:Name="cmbPrereqSource" Width="150">
-                                <ComboBoxItem Content="Domain Controller" IsSelected="True"/>
-                                <ComboBoxItem Content="Web (Latest)"/>
+                                <!-- <ComboBoxItem Content="Domain Controller"/> -->
+                                <ComboBoxItem Content="Web (Latest)" IsSelected="True"/>
                             </ComboBox>
                         </StackPanel>
                         <CheckBox x:Name="chkVC" Content="VC++ Redistributable (14.42.34433)" Margin="0,2" ToolTip="Required for Bluebeam Revu &amp; Vista ODBC"/>
@@ -132,7 +132,7 @@ Add-Type -AssemblyName PresentationFramework
         <Border Grid.Row="1" Grid.Column="1" BorderBrush="LightGray" BorderThickness="1,0,0,0" Padding="10,0,0,0">
             <StackPanel>
                 <TextBlock Text="Preset" FontWeight="Bold" FontSize="18" Margin="0,0,0,10" Foreground="#005A9C"/>
-                <TextBlock Text="Runs all items in the Customize column automatically. Defaults to Domain Controller for files." TextWrapping="Wrap" Margin="0,0,0,20" FontStyle="Italic"/>
+                <TextBlock Text="Runs all items in the Customize column automatically. Defaults to Web (Latest) for files." TextWrapping="Wrap" Margin="0,0,0,20" FontStyle="Italic"/>
                 
                 <Button x:Name="btnRunPreset" Content="Run Onboarding Process Preset" Height="60" Background="#28a745" Foreground="White" FontWeight="Bold" FontSize="14"/>
                 
@@ -195,8 +195,6 @@ $radUpdateDefault = $Window.FindName("radUpdateDefault")
 $radUpdateDelay = $Window.FindName("radUpdateDelay")
 $chkRename      = $Window.FindName("chkRename")
 
-
-
 # 
 # Block 3: UTILITY & UI FUNCTIONS
 # 
@@ -217,7 +215,7 @@ function Write-Log {
     $LogEntry = "[$Timestamp] [$Level] $Message`r`n"
     
     $txtLog.AppendText($LogEntry)
-    $txtLog.ScrollToEnd() # Auto-scrolls to newest line in log
+    $txtLog.ScrollToEnd() # scrolls to newest line in log
     Sync-UI
 }
 
@@ -251,7 +249,7 @@ function Get-UserDetails {
         $LoggedInUser = (Get-CimInstance Win32_ComputerSystem).UserName
         $SamAccountName = $LoggedInUser.Split('\')[-1]
         
-        # query Active Directory
+        # query Active Directory (will fail if machine is not joined to a domain)
         $Searcher = New-Object System.DirectoryServices.DirectorySearcher
         $Searcher.Filter = "(&(objectCategory=person)(objectClass=user)(sAMAccountName=$SamAccountName))"
         $Result = $Searcher.FindOne()
@@ -301,12 +299,12 @@ function Update-Preview {  # this generates a preview of the PC name as the admi
     
     $ideal = "$fi$combinedLast`PC".ToUpper()
     
-    # Enforce NetBIOS 15-character limit dynamically (if they have like 2 or 3 lastnames just in case (most likely won't happen) )
+    # Enforce NetBIOS 15-character limit dynamically (if they have like 2 or 3 lastnames just in case (most likely won't happen) ) pulled from stackoverflow to account for middle names
     if ($ideal.Length -gt 15) {
         $reserved = 3 # 1 char for First Initial, 2 chars for "PC"
         $avail = 15 - $reserved
         
-        # Substring the combined last name and trim dangling hyphens
+        # Substring the combined last name and trim hyphens
         $truncatedLast = $combinedLast.Substring(0, $avail).TrimEnd('-')
         $txtPreviewPCName.Text = "$fi$truncatedLast`PC".ToUpper()
     } else {
@@ -315,7 +313,6 @@ function Update-Preview {  # this generates a preview of the PC name as the admi
 }
  
 # Block 4:APPLICATION & TWEAK FUNCTIONS
-
 
 #--------------------- below are the easiest/straightforward apps to implement ---------------------#
 function Install-Chrome {
@@ -356,47 +353,36 @@ function Install-GoogleDrive {
 }
 
 function Install-AdobeAcrobat {
-    Write-Log "Verifying connection to Domain Controller for Adobe..."
-    $AdobePath = "\\DOMAIN.IP.ADDRESS\NinjaProvApps\AdobeAcrobat\acroread.msi"
+    Write-Log "Downloading and installing Adobe Acrobat Reader from Web..."
+    # OLD DC LOGIC COMMENTED OUT FOR PUBLIC HOSTING 
+    # $AdobePath = "\\DOMAIN.IP\NinjaProvApps\AdobeAcrobat\acroread.msi"
+    # if (-not (Test-Path $AdobePath)) { return }
+    # $AdobeArgs = "/i `"$AdobePath`" /qn /norestart EULA_ACCEPT=YES"
+    # $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList $AdobeArgs -Wait -PassThru
     
-    # check network connection and permissions
-    if (-not (Test-Path $AdobePath)) {
-        Write-Log "NETWORK ERROR: Cannot reach or read $AdobePath. Please verify your network connection and share permissions." "ERROR"
-        return # stop this specific installation so it doesn't try to run a missing file
-    }
-    
-    Write-Log "Connection successful. Installing Adobe Acrobat Reader..."
     try {
-        # use specific quote escaping to protect the space in "NinjaProvApps"
-        $AdobeArgs = "/i `"$AdobePath`" /qn /norestart EULA_ACCEPT=YES"
-        
-        $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList $AdobeArgs -Wait -PassThru
-        Write-Log "Adobe exited with code $($proc.ExitCode)"
-        
-        if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne 3010) {
-            Write-Log "Adobe Acrobat Reader installation failed (exit code $($proc.ExitCode))." "ERROR"
-        } else {
+        $proc = Start-Process -FilePath "winget.exe" -ArgumentList "install -e --id Adobe.Acrobat.Reader.64-bit --accept-source-agreements --accept-package-agreements --silent" -Wait -PassThru -NoNewWindow
+        if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq -1978335189) {
             Write-Log "Adobe Acrobat Reader installed successfully." "SUCCESS"
+        } else {
+            Write-Log "Adobe Acrobat Reader installation failed (exit code $($proc.ExitCode))." "ERROR"
         }
     } catch {
         Write-Log "ERROR: Failed to install Adobe Acrobat Reader: $($_.Exception.Message)" "ERROR"
     }
 }
 
-
 #--------------------- below are prereqs ---------------------#
 function Install-ODBC {
     param([string]$Source)
     Write-Log "Installing Microsoft ODBC Driver... (Source: $Source)"
     try {
-        if ($Source -match "Web") {
-            #  Winget
-           $proc = Start-Process -FilePath "winget.exe" -ArgumentList "install -e --id Microsoft.msodbcsql.17 --accept-source-agreements --accept-package-agreements --silent" -Wait -PassThru -NoNewWindow
-        } else {
-            
-            $Args = '/i "\\DOMAIN.IP.ADDRESS\NinjaProvApps\VistaClient\msodbcsql.msi" /qn /norestart IACCEPTMSODBCSQLLICENSETERMS=YES'
-            $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList $Args -Wait -PassThru
-        }
+        # OLD DC LOGIC COMMENTED OUT FOR PUBLIC HOSTING 
+        # $Args = '/i "\\DOMAIN.IP.ADDRESS\NinjaProvApps\VistaClient\msodbcsql.msi" /qn /norestart IACCEPTMSODBCSQLLICENSETERMS=YES'
+        # $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList $Args -Wait -PassThru
+        
+        # Enforcing Web installation for public script
+        $proc = Start-Process -FilePath "winget.exe" -ArgumentList "install -e --id Microsoft.msodbcsql.17 --accept-source-agreements --accept-package-agreements --silent" -Wait -PassThru -NoNewWindow
         
         if ($proc.ExitCode -in @(0, 3010, -1978335189)) { 
             Write-Log "Microsoft ODBC Driver installed successfully." "SUCCESS" 
@@ -412,13 +398,12 @@ function Install-NetFramework {
     param([string]$Source)
     Write-Log "Installing .NET Framework 4.8... (Source: $Source)"
     try {
-        if ($Source -match "Web") {
-            $proc = Start-Process -FilePath "winget.exe" -ArgumentList "install -e --id Microsoft.DotNet.Framework.DeveloperPack_4.8 --accept-source-agreements --accept-package-agreements --silent" -Wait -PassThru -NoNewWindow
-        } else {
-            
-            $Args = '/q /norestart'
-            $proc = Start-Process -FilePath "\\DOMAIN.IP.ADDRESS\NinjaProvApps\VistaClient\ndp48-x86-x64-allos-enu.exe" -ArgumentList $Args -Wait -PassThru
-        }
+        # OLD DC LOGIC COMMENTED OUT FOR PUBLIC HOSTING 
+        # $Args = '/q /norestart'
+        # $proc = Start-Process -FilePath "\\DOMAIN.IP.ADDRESS\NinjaProvApps\VistaClient\ndp48-x86-x64-allos-enu.exe" -ArgumentList $Args -Wait -PassThru
+        
+        
+        $proc = Start-Process -FilePath "winget.exe" -ArgumentList "install -e --id Microsoft.DotNet.Framework.DeveloperPack_4.8 --accept-source-agreements --accept-package-agreements --silent" -Wait -PassThru -NoNewWindow
         
         if ($proc.ExitCode -in @(0, 3010, -1978335189)) { Write-Log ".NET Framework 4.8 installed successfully." "SUCCESS" } 
         else { Write-Log ".NET Framework installation returned exit code $($proc.ExitCode)." "WARN" }
@@ -426,14 +411,16 @@ function Install-NetFramework {
 }
 
 function Install-SAPReports {
-    Write-Log "Installing SAP Crystal Reports from Domain Controller..."
+    Write-Log "Installing SAP Crystal Reports..."
     try {
-        #Winget cant get SAP so default to domain controller
-        $Args = '/i "\\DOMAIN.IP.ADDRESS\NinjaProvApps\SAP\CRRuntime_64bit_13_0_25.msi" /qn /norestart'
-        $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList $Args -Wait -PassThru
+        # OLD DC LOGIC COMMENTED OUT FOR PUBLIC HOSTING
+        # $Args = '/i "\\DOMAIN.IP.ADDRESS\NinjaProvApps\SAP\CRRuntime_64bit_13_0_25.msi" /qn /norestart'
+        # $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList $Args -Wait -PassThru
         
-        if ($proc.ExitCode -in @(0, 3010)) { Write-Log "SAP Crystal Reports installed successfully." "SUCCESS" } 
-        else { Write-Log "SAP Crystal Reports installation returned exit code $($proc.ExitCode)." "WARN" }
+        # SAP Crystal reports is often proprietary and requires a direct download link from the company that distributes it aka Vista
+        Write-Log "SAP Crystal Reports is usually downloaded with a link from the BI company that distributes their software (so it's not available in my public ver.)" "WARN"
+       
+        
     } catch { Write-Log "Failed to install SAP Crystal Reports: $($_.Exception.Message)" "ERROR" }
 }
 
@@ -441,113 +428,71 @@ function Install-VCRedist {
     param([string]$Source)
     Write-Log "Installing VC++ Redistributable... (Source: $Source)"
     try {
-        if ($Source -match "Web") {
-            $proc = Start-Process -FilePath "winget.exe" -ArgumentList "install -e --id Microsoft.VCRedist.2015+.x64 --accept-source-agreements --accept-package-agreements --silent" -Wait -PassThru -NoNewWindow
-        } else {
-            
-            $Args = '/install /quiet /norestart'
-          
-            $proc = Start-Process -FilePath "\\DOMAIN.IP.ADDRESS\NinjaProvApps\Bluebeam\vc_redist.x64.exe" -ArgumentList $Args -Wait -PassThru #install vc++ from bluebeam folder
-        }
+        # OLD DC LOGIC COMMENTED OUT FOR PUBLIC HOSTING 
+        # $Args = '/install /quiet /norestart'
+        # $proc = Start-Process -FilePath "\\DOMAIN.IP.ADDRESS\NinjaProvApps\Bluebeam\vc_redist.x64.exe" -ArgumentList $Args -Wait -PassThru 
+        
+        
+        $proc = Start-Process -FilePath "winget.exe" -ArgumentList "install -e --id Microsoft.VCRedist.2015+.x64 --accept-source-agreements --accept-package-agreements --silent" -Wait -PassThru -NoNewWindow
         
         if ($proc.ExitCode -in @(0, 3010, -1978335189)) { Write-Log "VC++ Redistributable installed successfully." "SUCCESS" } 
         else { Write-Log "VC++ Redistributable installation returned exit code $($proc.ExitCode)." "WARN" }
     } catch { Write-Log "Failed to install VC++ Redistributable: $($_.Exception.Message)" "ERROR" }
 }
 
-
 #--------------------- below are bluebeam+vista ---------------------#
 function Install-Bluebeam {
     param([string]$Source)
-    Write-Log "Starting Bluebeam Revu Installation... (Source: $Source)"
+    Write-Log "Starting Bluebeam Revu Installation from Web..."
 
-    if ($Source -match "Web") {
-        try {
-            $proc = Start-Process -FilePath "winget.exe" -ArgumentList "install -e --id Bluebeam.Revu.21 --accept-source-agreements --accept-package-agreements --silent" -Wait -PassThru -NoNewWindow
-            if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq -1978335189) { Write-Log "Bluebeam Revu installed successfully from Web." "SUCCESS" }
-            else { Write-Log "Bluebeam Web installation returned exit code $($proc.ExitCode)." "WARN" }
-        } catch { Write-Log "Failed to install Bluebeam from Web: $($_.Exception.Message)" "ERROR" }
-    } 
-    else {
-        # Domain Controller install logic
-        $LocalTemp = "C:\Windows\Temp\Ninja Deploy\Bluebeam"
-        $NetworkPath = "\\DOMAIN.IP.ADDRESS\NinjaProvApps\Bluebeam"
-        
-        try {
-            if (-not (Test-Path $LocalTemp)) { New-Item -ItemType Directory -Path $LocalTemp -Force | Out-Null }
-            
-            Write-Log "Staging Bluebeam files locally..."
-            Copy-Item -Path "$NetworkPath\*" -Destination $LocalTemp -Recurse -Force
-            
-            # VC++ Redistributable [cite: 64, 66]
-            Write-Log "Installing bundled VC++ Redistributable..."
-            $vcProc = Start-Process -FilePath "$LocalTemp\vc_redist.x64.exe" -ArgumentList "/install /quiet /norestart" -Wait -PassThru
-            if ($vcProc.ExitCode -notin @(0, 3010, 1638)) { Write-Log "VC++ installation failed (exit code $($vcProc.ExitCode))." "ERROR" }
-            
-            # Bluebeam Main Application [cite: 81, 82]
-            Write-Log "Installing Bluebeam Revu MSI..."
-            $msiArgs = '/i "' + $LocalTemp + '\Bluebeam Revu x64 21.msi" /qn /norestart'
-            $bbProc = Start-Process -FilePath "msiexec.exe" -ArgumentList $msiArgs -Wait -PassThru
-            
-            if ($bbProc.ExitCode -notin @(0, 3010)) { 
-                Write-Log "Bluebeam installation failed (exit code $($bbProc.ExitCode))." "ERROR" 
-            } else { 
-                Write-Log "Bluebeam Revu installed successfully." "SUCCESS" 
-            }
-        } catch {
-            Write-Log "ERROR: Failed to install Bluebeam: $($_.Exception.Message)" "ERROR"
-        } finally {
-            Write-Log "Removing Bluebeam local staging files..."
-            Remove-Item -Path "C:\Windows\Temp\Ninja Deploy" -Recurse -Force -ErrorAction SilentlyContinue
-        }
+    try {
+        $proc = Start-Process -FilePath "winget.exe" -ArgumentList "install -e --id Bluebeam.Revu.21 --accept-source-agreements --accept-package-agreements --silent" -Wait -PassThru -NoNewWindow
+        if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq -1978335189) { Write-Log "Bluebeam Revu installed successfully from Web." "SUCCESS" }
+        else { Write-Log "Bluebeam Web installation returned exit code $($proc.ExitCode)." "WARN" }
+    } catch { 
+        Write-Log "Failed to install Bluebeam from Web: $($_.Exception.Message)" "ERROR" 
     }
-}
 
-function Install-Vista {
-    Write-Log "Starting Viewpoint Vista Installation from Domain Controller..."
-    
-    $NetworkPath = "\\DOMAIN.IP.ADDRESS\NinjaProvApps\VistaClient"
-    $LocalTemp = "C:\Windows\Temp\VistaDeploy"
+    # OLD DC LOGIC COMMENTED OUT FOR PUBLIC HOSTING
+    <# 
+    $LocalTemp = "C:\Windows\Temp\Ninja Deploy\Bluebeam"
+    $NetworkPath = "\\DOMAIN.IP.ADDRESS\NinjaProvApps\Bluebeam"
     
     try {
         if (-not (Test-Path $LocalTemp)) { New-Item -ItemType Directory -Path $LocalTemp -Force | Out-Null }
-        
-        Write-Log "Staging Vista installation files locally..."
         Copy-Item -Path "$NetworkPath\*" -Destination $LocalTemp -Recurse -Force
         
-        # ODBC Driver
-        Write-Log "Installing bundled MS ODBC SQL Driver..."
-        $ODBCArgs = '/i "' + $LocalTemp + '\msodbcsql.msi" /qn /norestart IACCEPTMSODBCSQLLICENSETERMS=YES'
-        $odbcProc = Start-Process -FilePath "msiexec.exe" -ArgumentList $ODBCArgs -Wait -PassThru
-        if ($odbcProc.ExitCode -notin @(0, 3010, 1641)) { Write-Log "ODBC SQL Driver failed (Exit Code: $($odbcProc.ExitCode))" "ERROR" }
+        $vcProc = Start-Process -FilePath "$LocalTemp\vc_redist.x64.exe" -ArgumentList "/install /quiet /norestart" -Wait -PassThru
         
-        # .NET Framework 4.8
-        Write-Log "Installing bundled .NET Framework 4.8..."
-        $netProc = Start-Process -FilePath "$LocalTemp\ndp48-x86-x64-allos-enu.exe" -ArgumentList "/q /norestart" -Wait -PassThru
-        if ($netProc.ExitCode -notin @(0, 3010, 1641, 5100)) { Write-Log ".NET 4.8 failed (Exit Code: $($netProc.ExitCode))" "ERROR" }
+        $msiArgs = '/i "' + $LocalTemp + '\Bluebeam Revu x64 21.msi" /qn /norestart'
+        $bbProc = Start-Process -FilePath "msiexec.exe" -ArgumentList $msiArgs -Wait -PassThru
+    } catch {
+        Write-Log "ERROR: Failed to install Bluebeam: $($_.Exception.Message)" "ERROR"
+    } finally {
+        Remove-Item -Path "C:\Windows\Temp\Ninja Deploy" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    #>
+}
 
-        # SAP Crystal Reports (just in case)
-        Write-Log "Installing bundled SAP Crystal Reports..."
-        $SAPArgs = '/i "\\DOMAIN.IP.ADDRESS\NinjaProvApps\SAP\CRRuntime_64bit_13_0_25.msi" /qn /norestart'
-        $sapProc = Start-Process -FilePath "msiexec.exe" -ArgumentList $SAPArgs -Wait -PassThru
-        if ($sapProc.ExitCode -notin @(0, 3010)) { Write-Log "SAP Crystal Reports failed (Exit Code: $($sapProc.ExitCode))" "ERROR" }
+function Install-Vista {
+    Write-Log "Starting Viewpoint Vista Installation..."
+    
+    # OLD DC LOGIC COMMENTED OUT FOR PUBLIC HOSTING
+    <# 
+    $NetworkPath = "\\DOMAIN.IP.ADDRESS\NinjaProvApps\VistaClient"
+    $LocalTemp = "C:\Windows\Temp\VistaDeploy"
+    try {
+        if (-not (Test-Path $LocalTemp)) { New-Item -ItemType Directory -Path $LocalTemp -Force | Out-Null }
+        Copy-Item -Path "$NetworkPath\*" -Destination $LocalTemp -Recurse -Force
         
-        # Vista Viewpoint Client 
-        Write-Log "Installing Vista Viewpoint Client MSI..."
+        # ... Installation of bundled MSI's ... 
         $VistaArgs = '/i "' + $LocalTemp + '\VistaClient.26.3.1.7.msi" /qn /norestart ALLUSERS=1 /lv "C:\Windows\Temp\Vista_Install.log"'
         $vistaProc = Start-Process -FilePath "msiexec.exe" -ArgumentList $VistaArgs -Wait -PassThru
-        
-        if ($vistaProc.ExitCode -notin @(0, 3010, 1641)) { 
-            Write-Log "Vista Viewpoint Client installation failed (Exit Code: $($vistaProc.ExitCode)). Check C:\Windows\Temp\Vista_Install.log" "ERROR" 
-        } else { 
-            Write-Log "Vista Viewpoint Client installed successfully." "SUCCESS" 
-        }
-    } catch {
-        Write-Log "ERROR: Something went wrong installing Vista: $($_.Exception.Message)" "ERROR"
-    } finally {
-        Write-Log "Removing Vista local staging files to free up disk space..."
-        Remove-Item -Path $LocalTemp -Recurse -Force -ErrorAction SilentlyContinue
-    }
+    } catch { } finally { Remove-Item -Path $LocalTemp -Recurse -Force -ErrorAction SilentlyContinue }
+    #>
+
+
+    Write-Log "Viewpoint Vista is usually downloaded with a link from the BI company that distributes their software (so it's not available in my public ver.)" "WARN"
 }
 
 #--------------------- below is the debloat script ---------------------# 
@@ -646,10 +591,12 @@ function Invoke-Debloat {
     Set-ItemProperty -Path $StoreRegPath -Name "AutoDownload" -Value 4 -Type DWord -Force
 }
 
-
 #--------------------- below is the office cleanup + installation script ---------------------# 
 function Install-OfficeLTSC {
     Write-Log "Starting Office cleanup and installation process..."
+    
+    #Office's installation below won't work out of the box since it relies on JMW's custom XML configuration to install
+    # The code is left the same, but it just won't execute
     
     $LocalTemp = "C:\Windows\Temp\NinjaDeploy"
     $NetworkPath = "\\DOMAIN.IP.ADDRESS\NinjaProvApps\Office" 
@@ -697,15 +644,18 @@ function Install-OfficeLTSC {
         
         $SetupArgs = '/configure "' + $LocalTemp + '\Configuration3.14.2025.xml"'
         
-        $proc = Start-Process -FilePath "$LocalTemp\setup.exe" -ArgumentList $SetupArgs -WorkingDirectory $LocalTemp -Wait -PassThru
+        # Execution is commented out because it depends on custom XML
+        # $proc = Start-Process -FilePath "$LocalTemp\setup.exe" -ArgumentList $SetupArgs -WorkingDirectory $LocalTemp -Wait -PassThru
+        # Write-Log "setup.exe exited with code $($proc.ExitCode)"
         
-        Write-Log "setup.exe exited with code $($proc.ExitCode)"
+        # if ($proc.ExitCode -notin @(0, 3010)) {
+        #     Write-Log "Office installation failed (Exit Code: $($proc.ExitCode))" "ERROR"
+        # } else {
+        #     Write-Log "Office installation completed successfully." "SUCCESS"
+        # }
         
-        if ($proc.ExitCode -notin @(0, 3010)) {
-            Write-Log "Office installation failed (Exit Code: $($proc.ExitCode))" "ERROR"
-        } else {
-            Write-Log "Office installation completed successfully." "SUCCESS"
-        }
+        Write-Log "Skipped Execution: Custom configuration XML is required." "WARN"
+
     } catch {
         Write-Log "Failed to install office: $($_.Exception.Message)" "ERROR"
     } finally {
@@ -714,7 +664,6 @@ function Install-OfficeLTSC {
         Write-Log "Office cleanup and installation complete."
     }
 }
-
 
 #--------------------- below is the windows updates config script ---------------------# 
 function Set-WindowsUpd8s {
@@ -730,14 +679,14 @@ function Set-WindowsUpd8s {
     if ($Mode -eq "Delay") {
         Write-Log "Applying Windows Update delays (Features: 365 days, Security: 4 days, No Drivers)..."
         try {
-            # Prevent Windows from installing drivers [cite: 29]
+            # Prevent Windows from installing drivers 
             Set-ItemProperty -Path $WUPath -Name "ExcludeWUDriversInQualityUpdate" -Value 1 -Type DWord -Force
             
-            # Defer Feature Updates by 365 days [cite: 27, 28]
+            # Defer Feature Updates by 365 days 
             Set-ItemProperty -Path $WUPath -Name "DeferFeatureUpd8s" -Value 1 -Type DWord -Force
             Set-ItemProperty -Path $WUPath -Name "DeferFeatureUpd8sPeriodInDays" -Value 365 -Type DWord -Force
             
-            # Defer Quality (Security) Updates by 4 days [cite: 28]
+            # Defer Quality (Security) Updates by 4 days 
             Set-ItemProperty -Path $WUPath -Name "DeferQualityUpd8s" -Value 1 -Type DWord -Force
             Set-ItemProperty -Path $WUPath -Name "DeferQualityUpd8sPeriodInDays" -Value 4 -Type DWord -Force
             
@@ -766,7 +715,6 @@ function Set-WindowsUpd8s {
         }
     }
 }
-
 
 #--------------------- below renames the computer ---------------------# 
 function Rename-PC {
@@ -919,16 +867,16 @@ Do you want to proceed?
     Install-SAPReports
     Upd8-Prog -Value 30
     
-    Install-VCRedist -Source "Domain Controller"
-    Install-ODBC -Source "Domain Controller"
-    Install-NetFramework -Source "Domain Controller"
-    Install-Vista -Source "Domain Controller"
+    Install-VCRedist -Source "Web (Latest)"
+    Install-ODBC -Source "Web (Latest)"
+    Install-NetFramework -Source "Web (Latest)"
+    Install-Vista -Source "Web (Latest)"
     Upd8-Prog -Value 50
     
     Install-AdobeAcrobat
     Upd8-Prog -Value 60
     
-    Install-Bluebeam -Source "Domain Controller"
+    Install-Bluebeam -Source "Web (Latest)"
     Upd8-Prog -Value 75
     
     Install-OfficeLTSC
@@ -945,6 +893,7 @@ Do you want to proceed?
     $btnRunCustom.IsEnabled = $true
     $btnRunPreset.IsEnabled = $true
 })
+
 # 
 # Block 6: INITIALIZATION & LAUNCH
 #
